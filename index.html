@@ -135,9 +135,10 @@ $("generate").onclick=async function(){
    history.unshift({tool:selectedTool,text:currentText,date:new Date().toLocaleString()});
    history=history.slice(0,50); localStorage.setItem("kudex_history",JSON.stringify(history));
  }catch(e){
-   $("result").textContent="Could not generate right now. Check the Vercel environment variables OPENAI_API_KEY and OPENAI_MODEL.";
-   $("status").textContent=e.message||"Generation failed.";
- }finally{btn.disabled=false;}
+   $("result").textContent="ERROR: " + (e.message || "Generation failed");
+   $("status").textContent="Backend error — see the message above.";
+ }
+ finally{btn.disabled=false;}
 };
 
 $("save").onclick=function(){
