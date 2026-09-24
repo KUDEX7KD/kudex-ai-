@@ -4,10 +4,17 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { prompt } = req.body || {};
+    const {
+      tool,
+      topic,
+      language,
+      audience,
+      style,
+      length
+    } = req.body || {};
 
-    if (!prompt) {
-      return res.status(400).json({ error: "Prompt is required" });
+    if (!topic) {
+      return res.status(400).json({ error: "Topic is required" });
     }
 
     if (!process.env.OPENAI_API_KEY) {
@@ -15,6 +22,24 @@ export default async function handler(req, res) {
         error: "OPENAI_API_KEY is not configured"
       });
     }
+
+    const prompt = `
+You are KUDEX AI, a creator toolkit for YouTube Shorts.
+
+Create content using these settings:
+
+Tool: ${tool || "Shorts Script"}
+Topic: ${topic}
+Language: ${language || "English"}
+Audience: ${audience || "Global"}
+Style: ${style || "Viral & high-retention"}
+Length: ${length || "30 seconds"}
+
+Follow the selected language naturally.
+Make the content engaging, clear, original and suitable for the selected audience.
+
+Return only the requested creator content. Do not add unnecessary explanations.
+`;
 
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -32,17 +57,17 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       return res.status(response.status).json({
-        error: data?.error?.message || "AI request failed"
+        error: data?.error?.message || "OpenAI request failed"
       });
     }
 
     return res.status(200).json({
-      output: data.output_text || ""
+      text: data.output_text || ""
     });
 
   } catch (error) {
     return res.status(500).json({
-      error: "Server error"
+      error: error?.message || "Server error"
     });
   }
-      }
+}
