@@ -1,7 +1,7 @@
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({
-      error: "Method not allowed"
+      error: "This action is not available."
     });
   }
 
@@ -17,17 +17,22 @@ export default async function handler(req, res) {
 
     if (!topic || !topic.trim()) {
       return res.status(400).json({
-        error: "Topic is required"
+        error: "Please enter a topic first."
       });
     }
 
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
+      console.error("KUDEX: GEMINI_API_KEY is missing");
+
       return res.status(500).json({
-        error: "GEMINI_API_KEY is not configured"
+        error: "KUDEX AI is temporarily unavailable. Please try again later."
       });
     }
+
+    const model =
+      process.env.GEMINI_MODEL || "gemini-3.8-flash";
 
     const prompt = `
 You are KUDEX AI, a professional creator toolkit for YouTube creators.
@@ -43,67 +48,109 @@ Length: ${length || "30 seconds"}
 
 Requirements:
 - Follow the selected language naturally.
-- Make the content engaging and original.
+- Make the content engaging, original and useful.
 - Make it suitable for the selected audience.
 - Follow the requested tool.
-- Keep the output useful and ready to copy.
+- Keep the output ready to copy.
 - Do not add unnecessary explanations.
 
 Return only the requested creator content.
 `;
 
-    const model =
-      process.env.GEMINI_MODEL || "gemini-2.5-flash";
-
     const url =
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
+    let lastStatus = 0;
+
+    // Retry up to 3 times for temporary provider problems.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            contents: [
               {
-                text: prompt
+                parts: [
+                  {
+                    text: prompt
+                  }
+                ]
               }
             ]
+          })
+        });
+
+        const data = await response.json();
+        lastStatus = response.status;
+
+        if (response.ok) {
+          const text =
+            data?.candidates?.[0]?.content?.parts
+              ?.map(part => part.text || "")
+              .join("") || "";
+
+          if (!text) {
+            console.error("KUDEX: Empty AI response");
+
+            return res.status(502).json({
+              error: "KUDEX AI could not create a response. Please try again."
+            });
           }
-        ]
-      })
-    });
 
-    const data = await response.json();
+          return res.status(200).json({
+            text
+          });
+        }
 
-    if (!response.ok) {
-      return res.status(response.status).json({
-        error:
-          data?.error?.message ||
-          "Gemini API request failed"
-      });
+        // Temporary errors: retry automatically.
+        const temporary =
+          response.status === 408 ||
+          response.status === 429 ||
+          response.status >= 500;
+
+        if (!temporary) {
+          console.error(
+            "KUDEX provider error:",
+            response.status,
+            data?.error?.message || "Unknown error"
+          );
+
+          return res.status(502).json({
+            error: "KUDEX AI could not generate this right now. Please try again."
+          });
+        }
+
+        if (attempt < 2) {
+          await new Promise(resolve =>
+            setTimeout(resolve, 1000 * (attempt + 1))
+          );
+        }
+
+      } catch (networkError) {
+        console.error("KUDEX network error:", networkError);
+
+        if (attempt < 2) {
+          await new Promise(resolve =>
+            setTimeout(resolve, 1000 * (attempt + 1))
+          );
+        }
+      }
     }
 
-    const text =
-      data?.candidates?.[0]?.content?.parts
-        ?.map(part => part.text || "")
-        .join("") || "";
+    console.error("KUDEX temporary failure:", lastStatus);
 
-    if (!text) {
-      return res.status(500).json({
-        error: "Gemini returned an empty response"
-      });
-    }
-
-    return res.status(200).json({
-      text
+    return res.status(503).json({
+      error: "KUDEX AI is busy right now. Please try again in a moment."
     });
 
   } catch (error) {
+    console.error("KUDEX server error:", error);
+
     return res.status(500).json({
-      error: error?.message || "Server error"
+      error: "Something went wrong. Please try again."
     });
   }
-        }
+}
