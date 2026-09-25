@@ -1,6 +1,8 @@
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({
+      error: "Method not allowed"
+    });
   }
 
   try {
@@ -13,20 +15,22 @@ export default async function handler(req, res) {
       length
     } = req.body || {};
 
-    if (!topic) {
+    if (!topic || !topic.trim()) {
       return res.status(400).json({
         error: "Topic is required"
       });
     }
 
-    if (!process.env.GEMINI_API_KEY) {
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
       return res.status(500).json({
         error: "GEMINI_API_KEY is not configured"
       });
     }
 
     const prompt = `
-You are KUDEX AI, a creator toolkit for YouTube creators.
+You are KUDEX AI, a professional creator toolkit for YouTube creators.
 
 Create content using these settings:
 
@@ -37,35 +41,40 @@ Audience: ${audience || "Global"}
 Style: ${style || "Viral & high-retention"}
 Length: ${length || "30 seconds"}
 
-Make the content engaging, original, natural and suitable for the selected audience.
+Requirements:
+- Follow the selected language naturally.
+- Make the content engaging and original.
+- Make it suitable for the selected audience.
+- Follow the requested tool.
+- Keep the output useful and ready to copy.
+- Do not add unnecessary explanations.
 
-Follow the selected language.
 Return only the requested creator content.
 `;
 
     const model =
       process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: prompt
-                }
-              ]
-            }
-          ]
-        })
-      }
-    );
+    const url =
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                text: prompt
+              }
+            ]
+          }
+        ]
+      })
+    });
 
     const data = await response.json();
 
@@ -97,4 +106,4 @@ Return only the requested creator content.
       error: error?.message || "Server error"
     });
   }
-                                  }
+        }
