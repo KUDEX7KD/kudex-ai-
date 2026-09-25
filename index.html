@@ -34,6 +34,16 @@ button{cursor:pointer}
 .pricing{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:30px 0}.price h3{margin:4px 0}.price strong{font-size:28px}.price p,.price li{color:var(--muted)}.price ul{padding-left:20px;line-height:1.8}.price button{width:100%;border:1px solid var(--line);background:var(--panel2);color:#fff;border-radius:11px;padding:11px}
 .drawer{position:fixed;inset:0;display:none;z-index:30;background:rgba(0,0,0,.6)}.drawer.open{display:block}.side{width:min(330px,88vw);height:100%;background:#0a101d;border-right:1px solid var(--line);padding:18px;box-shadow:20px 0 50px #000}.close{float:right;border:0;background:transparent;color:#aaa;font-size:22px}.nav{display:grid;gap:8px;margin-top:20px}.nav button{text-align:left;border:1px solid var(--line);background:var(--panel);color:#fff;border-radius:12px;padding:12px}
 .modal{position:fixed;inset:0;display:none;place-items:center;z-index:40;background:rgba(0,0,0,.7);padding:16px}.modal.open{display:grid}.modalBox{width:min(440px,100%);max-height:85vh;overflow:auto;background:#0c1423;border:1px solid var(--line);border-radius:20px;padding:18px}.loginBtns{display:grid;gap:10px;margin-top:14px}.loginBtns button{padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:#fff}.list{display:grid;gap:9px;margin-top:12px}.item{padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}.empty{color:var(--muted);text-align:center;padding:30px}
+
+/* Rating */
+.ratingStars{display:flex;justify-content:center;gap:7px;margin:18px 0}
+.ratingStar{border:1px solid var(--line);background:var(--panel);color:#71809a;border-radius:12px;font-size:25px;width:50px;height:50px}
+.ratingStar.selected{color:#ffd34d;border-color:#806dff;background:#171c36}
+.ratingFeedback{width:100%;min-height:90px;resize:vertical;background:#0a1120;border:1px solid #31415f;border-radius:12px;color:#fff;padding:12px;outline:none}
+.ratingActions{display:flex;gap:10px;margin-top:12px}
+.ratingActions button{flex:1;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:#fff}
+.ratingActions .submitRating{background:linear-gradient(90deg,#7056ff,#00bfe9);border:0;font-weight:800}
+
 @media(max-width:700px){.controls,.pricing{grid-template-columns:1fr}.hero{padding-top:30px}.actions{flex-direction:column}}
 </style>
 </head>
@@ -81,73 +91,422 @@ button{cursor:pointer}
 </section>
 </div>
 
-<div class="drawer" id="drawer"><aside class="side"><button class="close" id="closeDrawer" type="button">×</button><h2>KUDEX AI</h2><p style="color:var(--muted)">Creator workspace</p><div class="nav"><button id="savedNav" type="button">📁 Saved Files</button><button id="historyNav" type="button">🕘 Generation History</button><button id="loginNav" type="button">🔐 Login / Account</button></div></aside></div>
-<div class="modal" id="modal"><div class="modalBox"><button class="close" id="closeModal" type="button">×</button><h2 id="modalTitle"></h2><div id="modalContent"></div></div></div>
+<div class="drawer" id="drawer">
+<aside class="side">
+<button class="close" id="closeDrawer" type="button">×</button>
+<h2>KUDEX AI</h2>
+<p style="color:var(--muted)">Creator workspace</p>
+<div class="nav">
+<button id="savedNav" type="button">📁 Saved Files</button>
+<button id="historyNav" type="button">🕘 Generation History</button>
+<button id="shareNav" type="button">📤 Share KUDEX AI</button>
+<button id="rateNav" type="button">⭐ Rate KUDEX AI</button>
+<button id="loginNav" type="button">🔐 Login / Account</button>
+</div>
+</aside>
+</div>
+
+<div class="modal" id="modal">
+<div class="modalBox">
+<button class="close" id="closeModal" type="button">×</button>
+<h2 id="modalTitle"></h2>
+<div id="modalContent"></div>
+</div>
+</div>
 
 <script>
 (function(){
 "use strict";
+
 const $=id=>document.getElementById(id);
-let selectedTool="Shorts Script", currentText="";
+
+let selectedTool="Shorts Script";
+let currentText="";
+
 let history=JSON.parse(localStorage.getItem("kudex_history")||"[]");
 let saved=JSON.parse(localStorage.getItem("kudex_saved")||"[]");
 
+let successfulGenerations=parseInt(
+  localStorage.getItem("kudex_successful_generations")||"0",
+  10
+);
+
+let ratingGiven=localStorage.getItem("kudex_rating_given")==="true";
+
+/* Tool selection */
 document.querySelectorAll(".tool").forEach(btn=>btn.addEventListener("click",function(){
  document.querySelectorAll(".tool").forEach(x=>x.classList.remove("active"));
- this.classList.add("active"); selectedTool=this.dataset.tool;
+ this.classList.add("active");
+ selectedTool=this.dataset.tool;
 }));
-$("topic").addEventListener("input",function(){ $("status").textContent=this.value.length?"Ready to generate.":"Ready — type in the box above."; });
 
+$("topic").addEventListener("input",function(){
+ $("status").textContent=this.value.length
+ ? "Ready to generate."
+ : "Ready — type in the box above.";
+});
+
+/* Drawer */
 $("menuBtn").onclick=()=>$("drawer").classList.add("open");
+
 $("closeDrawer").onclick=()=>$("drawer").classList.remove("open");
+
 $("loginTop").onclick=openLogin;
-$("loginNav").onclick=()=>{ $("drawer").classList.remove("open"); openLogin(); };
-$("savedNav").onclick=()=>{ $("drawer").classList.remove("open"); openList("Saved Files",saved); };
-$("historyNav").onclick=()=>{ $("drawer").classList.remove("open"); openList("Generation History",history); };
+
+$("loginNav").onclick=()=>{
+ $("drawer").classList.remove("open");
+ openLogin();
+};
+
+$("savedNav").onclick=()=>{
+ $("drawer").classList.remove("open");
+ openList("Saved Files",saved);
+};
+
+$("historyNav").onclick=()=>{
+ $("drawer").classList.remove("open");
+ openList("Generation History",history);
+};
+
+$("shareNav").onclick=()=>{
+ $("drawer").classList.remove("open");
+ shareKudex();
+};
+
+$("rateNav").onclick=()=>{
+ $("drawer").classList.remove("open");
+ openRating();
+};
+
 $("closeModal").onclick=()=>$("modal").classList.remove("open");
 
-function esc(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));}
+/* Escape HTML */
+function esc(s){
+ return String(s).replace(/[&<>"']/g,m=>({
+  "&":"&amp;",
+  "<":"&lt;",
+  ">":"&gt;",
+  '"':"&quot;",
+  "'":"&#039;"
+ }[m]));
+}
+
+/* Saved / History */
 function openList(title,arr){
  $("modalTitle").textContent=title;
- $("modalContent").innerHTML=arr.length?'<div class="list">'+arr.map(x=>'<div class="item"><b>'+esc(x.tool)+'</b><div style="color:var(--muted);font-size:12px">'+esc(x.date)+'</div><p>'+esc(x.text).slice(0,700)+'</p></div>').join("")+'</div>':'<div class="empty">Nothing saved yet.</div>';
+
+ $("modalContent").innerHTML=arr.length
+ ? '<div class="list">'+
+   arr.map(x=>
+    '<div class="item">'+
+    '<b>'+esc(x.tool)+'</b>'+
+    '<div style="color:var(--muted);font-size:12px">'+esc(x.date)+'</div>'+
+    '<p>'+esc(x.text).slice(0,700)+'</p>'+
+    '</div>'
+   ).join("")+
+   '</div>'
+ : '<div class="empty">Nothing saved yet.</div>';
+
  $("modal").classList.add("open");
 }
+
+/* Login */
 function openLogin(){
  $("modalTitle").textContent="Login to KUDEX AI";
- $("modalContent").innerHTML='<p style="color:var(--muted)">Login UI is ready. Firebase configuration is required to activate real authentication.</p><div class="loginBtns"><button type="button" onclick="alert(\'Google login needs Firebase configuration.\')">Continue with Google</button><button type="button" onclick="showPhone()">Continue with Phone + OTP</button></div><div id="phoneBox" style="display:none;margin-top:12px"><input placeholder="+91XXXXXXXXXX" style="width:100%;padding:12px;background:#0a1120;border:1px solid #31415f;border-radius:12px;color:#fff"><button type="button" style="width:100%;margin-top:8px;padding:12px;border-radius:12px;border:1px solid #263653;background:#0e1524;color:#fff" onclick="alert(\'Phone OTP needs Firebase configuration.\')">Send OTP</button></div>';
+
+ $("modalContent").innerHTML=
+ '<p style="color:var(--muted)">Login UI is ready. Firebase configuration is required to activate real authentication.</p>'+
+ '<div class="loginBtns">'+
+ '<button type="button" onclick="alert(\'Google login needs Firebase configuration.\')">Continue with Google</button>'+
+ '<button type="button" onclick="showPhone()">Continue with Phone + OTP</button>'+
+ '</div>'+
+ '<div id="phoneBox" style="display:none;margin-top:12px">'+
+ '<input placeholder="+91XXXXXXXXXX" style="width:100%;padding:12px;background:#0a1120;border:1px solid #31415f;border-radius:12px;color:#fff">'+
+ '<button type="button" style="width:100%;margin-top:8px;padding:12px;border-radius:12px;border:1px solid #263653;background:#0e1524;color:#fff" onclick="alert(\'Phone OTP needs Firebase configuration.\')">Send OTP</button>'+
+ '</div>';
+
  $("modal").classList.add("open");
 }
-window.showPhone=function(){ $("phoneBox").style.display="block"; };
 
-$("generate").onclick=async function(){
- const topic=$("topic").value.trim();
- if(!topic){ $("topic").focus(); $("status").textContent="Please type a topic first."; return; }
- const btn=$("generate"); btn.disabled=true; $("status").textContent="Generating…"; $("result").textContent="KUDEX AI is working…";
+window.showPhone=function(){
+ $("phoneBox").style.display="block";
+};
+
+/* Share */
+async function shareKudex(){
+
+ const shareData={
+   title:"KUDEX AI — Creator Toolkit",
+   text:"Create Shorts scripts, hooks, titles, thumbnail text and video ideas with KUDEX AI.",
+   url:window.location.href
+ };
+
  try{
-   const r=await fetch("/api/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-     tool:selectedTool,topic,language:$("language").value,audience:$("audience").value,style:$("style").value,length:$("length").value
-   })});
+
+   if(navigator.share){
+     await navigator.share(shareData);
+
+     $("status").textContent="KUDEX AI shared successfully.";
+     return;
+   }
+
+   if(navigator.clipboard){
+     await navigator.clipboard.writeText(window.location.href);
+
+     $("status").textContent="KUDEX AI link copied. Share it anywhere!";
+     return;
+   }
+
+   openShareFallback();
+
+ }catch(error){
+
+   if(error && error.name==="AbortError"){
+     return;
+   }
+
+   openShareFallback();
+ }
+}
+
+function openShareFallback(){
+
+ $("modalTitle").textContent="Share KUDEX AI";
+
+ $("modalContent").innerHTML=
+ '<p style="color:var(--muted)">Copy this link and share KUDEX AI with your friends.</p>'+
+ '<input id="shareLink" readonly value="'+esc(window.location.href)+'" style="width:100%;padding:12px;background:#0a1120;border:1px solid #31415f;border-radius:12px;color:#fff">'+
+ '<button type="button" style="width:100%;margin-top:10px;padding:12px;border:0;border-radius:12px;background:linear-gradient(90deg,#7056ff,#00bfe9);color:#fff;font-weight:800" onclick="copyShareLink()">Copy Link</button>';
+
+ $("modal").classList.add("open");
+}
+
+window.copyShareLink=async function(){
+
+ const input=$("shareLink");
+
+ try{
+   await navigator.clipboard.writeText(input.value);
+   $("status").textContent="Link copied successfully.";
+   $("modal").classList.remove("open");
+ }catch(error){
+   input.select();
+   document.execCommand("copy");
+   $("status").textContent="Link copied successfully.";
+   $("modal").classList.remove("open");
+ }
+};
+
+/* Rating */
+function openRating(){
+
+ if(ratingGiven){
+
+   $("modalTitle").textContent="Thank you! ⭐";
+
+   $("modalContent").innerHTML=
+   '<div class="empty">You have already rated KUDEX AI. Thanks for your feedback! ❤️</div>';
+
+   $("modal").classList.add("open");
+   return;
+ }
+
+ $("modalTitle").textContent="Rate KUDEX AI ⭐";
+
+ $("modalContent").innerHTML=
+ '<p style="color:var(--muted);text-align:center">How was your KUDEX AI experience?</p>'+
+ '<div class="ratingStars">'+
+ '<button class="ratingStar" type="button" data-rating="1">★</button>'+
+ '<button class="ratingStar" type="button" data-rating="2">★</button>'+
+ '<button class="ratingStar" type="button" data-rating="3">★</button>'+
+ '<button class="ratingStar" type="button" data-rating="4">★</button>'+
+ '<button class="ratingStar" type="button" data-rating="5">★</button>'+
+ '</div>'+
+ '<textarea id="ratingFeedback" class="ratingFeedback" placeholder="Optional feedback..."></textarea>'+
+ '<div class="ratingActions">'+
+ '<button type="button" id="ratingLater">Not now</button>'+
+ '<button type="button" id="submitRating" class="submitRating">Submit Rating</button>'+
+ '</div>';
+
+ $("modal").classList.add("open");
+
+ let selectedRating=0;
+
+ document.querySelectorAll(".ratingStar").forEach(star=>{
+
+   star.onclick=function(){
+
+     selectedRating=parseInt(this.dataset.rating,10);
+
+     document.querySelectorAll(".ratingStar").forEach(s=>{
+       s.classList.toggle(
+         "selected",
+         parseInt(s.dataset.rating,10)<=selectedRating
+       );
+     });
+   };
+ });
+
+ $("ratingLater").onclick=()=>{
+   $("modal").classList.remove("open");
+ };
+
+ $("submitRating").onclick=()=>{
+
+   if(!selectedRating){
+
+     $("status").textContent="Please select a star rating first.";
+     return;
+   }
+
+   localStorage.setItem(
+     "kudex_rating",
+     JSON.stringify({
+       rating:selectedRating,
+       feedback:$("ratingFeedback").value.trim(),
+       date:new Date().toISOString()
+     })
+   );
+
+   localStorage.setItem("kudex_rating_given","true");
+   ratingGiven=true;
+
+   $("modalTitle").textContent="Thank you! ❤️";
+
+   $("modalContent").innerHTML=
+   '<div class="empty">Your feedback helps us improve KUDEX AI.</div>';
+
+   $("status").textContent="Thanks for rating KUDEX AI!";
+ };
+}
+
+/* Automatic rating prompt */
+function maybeShowRating(){
+
+ if(ratingGiven){
+   return;
+ }
+
+ if(successfulGenerations===3){
+
+   setTimeout(()=>{
+     openRating();
+   },700);
+
+ }
+}
+
+/* Generate */
+$("generate").onclick=async function(){
+
+ const topic=$("topic").value.trim();
+
+ if(!topic){
+   $("topic").focus();
+   $("status").textContent="Please type a topic first.";
+   return;
+ }
+
+ const btn=$("generate");
+
+ btn.disabled=true;
+ $("status").textContent="Generating…";
+ $("result").textContent="KUDEX AI is working…";
+
+ try{
+
+   const r=await fetch("/api/generate",{
+     method:"POST",
+     headers:{
+       "Content-Type":"application/json"
+     },
+     body:JSON.stringify({
+       tool:selectedTool,
+       topic,
+       language:$("language").value,
+       audience:$("audience").value,
+       style:$("style").value,
+       length:$("length").value
+     })
+   });
+
    const data=await r.json();
-   if(!r.ok) throw new Error(data.error||"Generation failed");
+
+   if(!r.ok){
+     throw new Error(
+       data.error || "KUDEX AI is temporarily unavailable. Please try again."
+     );
+   }
+
    currentText=data.text||"";
+
    $("result").textContent=currentText;
    $("status").textContent="Generated successfully.";
-   history.unshift({tool:selectedTool,text:currentText,date:new Date().toLocaleString()});
-   history=history.slice(0,50); localStorage.setItem("kudex_history",JSON.stringify(history));
+
+   /* Only successful generations count */
+   successfulGenerations++;
+
+   localStorage.setItem(
+     "kudex_successful_generations",
+     String(successfulGenerations)
+   );
+
+   history.unshift({
+     tool:selectedTool,
+     text:currentText,
+     date:new Date().toLocaleString()
+   });
+
+   history=history.slice(0,50);
+
+   localStorage.setItem(
+     "kudex_history",
+     JSON.stringify(history)
+   );
+
+   /* Show rating after 3rd successful generation */
+   maybeShowRating();
+
  }catch(e){
-   $("result").textContent=e.message || "KUDEX AI is temporarily unavailable. Please try again.";
+
+   $("result").textContent=
+     e.message ||
+     "KUDEX AI is temporarily unavailable. Please try again.";
+
    $("status").textContent="Please try again in a moment.";
-}
- finally{btn.disabled=false;}
+
+ }finally{
+
+   btn.disabled=false;
+
+ }
 };
 
+/* Save */
 $("save").onclick=function(){
- if(!currentText){$("status").textContent="Generate something before saving.";return;}
- saved.unshift({tool:selectedTool,text:currentText,date:new Date().toLocaleString()});
- saved=saved.slice(0,100); localStorage.setItem("kudex_saved",JSON.stringify(saved));
+
+ if(!currentText){
+   $("status").textContent="Generate something before saving.";
+   return;
+ }
+
+ saved.unshift({
+   tool:selectedTool,
+   text:currentText,
+   date:new Date().toLocaleString()
+ });
+
+ saved=saved.slice(0,100);
+
+ localStorage.setItem(
+   "kudex_saved",
+   JSON.stringify(saved)
+ );
+
  $("status").textContent="Saved to Saved Files.";
 };
+
 })();
 </script>
 </body>
-</html>
+ </html>
