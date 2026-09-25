@@ -135,9 +135,9 @@ $("generate").onclick=async function(){
    history.unshift({tool:selectedTool,text:currentText,date:new Date().toLocaleString()});
    history=history.slice(0,50); localStorage.setItem("kudex_history",JSON.stringify(history));
  }catch(e){
-   $("result").textContent="ERROR: " + (e.message || "Generation failed");
-   $("status").textContent="Backend error — see the message above.";
- }
+   $("result").textContent=e.message || "KUDEX AI is temporarily unavailable. Please try again.";
+   $("status").textContent="Please try again in a moment.";
+}
  finally{btn.disabled=false;}
 };
 
