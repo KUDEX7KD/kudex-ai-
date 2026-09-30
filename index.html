@@ -508,5 +508,24 @@ $("save").onclick=function(){
 
 })();
 </script>
+  <script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+  import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAl4Qlw7bBMkdlMTmRRodyZ5ifWKsQ1zkY",
+    authDomain: "kudex-ai.firebaseapp.com",
+    projectId: "kudex-ai ",
+    storageBucket: "kudex-ai.firebasestorage.app",
+    messagingSenderId: "107321524345",
+      ",
+    appId: "1:107321524345:web:4e10525579702b45afd4a8",
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  window.kudexFirebase = { db, collection, addDoc, serverTimestamp };
+  </script>
 </body>
  </html>
